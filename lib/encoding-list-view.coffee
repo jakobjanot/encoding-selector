@@ -1,4 +1,5 @@
 fs = require 'fs'
+require('buffertools').extend();
 {SelectListView} = require 'atom-space-pen-views'
 
 # View to display a list of encodings to use in the current editor.
@@ -30,12 +31,24 @@ class EncodingListView extends SelectListView
     fs.readFile filePath, (error, buffer) =>
       return if error?
 
+      return detectXmlEncoding(buffer) if isXml(buffer)
+
       {encoding} =  jschardet.detect(buffer) ? {}
       encoding = 'utf8' if encoding is 'ascii'
       return unless iconv.encodingExists(encoding)
 
       encoding = encoding.toLowerCase().replace(/[^0-9a-z]|:\d{4}$/g, '')
       @editor.setEncoding(encoding)
+
+  isXml: (buffer) ->
+    buffer.toString("ascii", 0, 5) == '<?xml'
+
+  detectXmlEncoding: (buffer) ->
+    declaration = buffer.toString(0, buffer.indexOf('?>'))
+    regex = /^encoding\s*=\s*['"](\w+)['"]$/i
+    result = declaration.match(regex)
+    encoding = result[0]
+    return unless iconv.encodingExists(encoding)
 
   toggle: ->
     if @panel.isVisible()
